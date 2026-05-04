@@ -17,7 +17,7 @@ export async function POST(req: Request) {
         'X-Title': 'Trans Tracker 101',
       },
       body: JSON.stringify({
-        model: 'mistralai/mistral-7b-instruct:free',
+        model: 'meta-llama/llama-3.3-70b-instruct:free',
         messages: [
           {
             role: 'system',
