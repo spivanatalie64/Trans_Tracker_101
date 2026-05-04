@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Bot, X, Sparkles, Loader2 } from 'lucide-react';
+import dynamic from 'next/dynamic';
+const SprunglesDiagnostics = dynamic(() => import('./SprunglesDiagnostics').then(m => m.SprunglesDiagnostics), { ssr: false });
 
 interface Message {
   role: 'bot' | 'user';
@@ -44,12 +46,18 @@ export function Sprungles() {
       });
 
       const data = await response.json();
-      
+
       if (!response.ok || data.error) {
-        throw new Error(data.error || 'Failed to fetch');
+        // If the server returned diagnostics, surface a friendly message + diagnostics toggle
+        setMessages(prev => [...prev, { role: 'bot', content: "I'm sorry — I'm having trouble finding an available model right now. You can view diagnostic attempts below." }]);
+        setIsLoading(false);
+        // attach diagnostics to state so the UI can show them
+        setTimeout(() => setDiagnostics(data.attempts || null), 50);
+        return;
       }
 
       setMessages(prev => [...prev, { role: 'bot', content: data.reply }]);
+      setDiagnostics(data.attempts || null);
     } catch (error) {
       console.error(error);
       setMessages(prev => [...prev, { role: 'bot', content: "I'm sorry, my servers are receiving too many requests right now! Please wait a minute and try asking me again. 💙" }]);
@@ -57,6 +65,8 @@ export function Sprungles() {
       setIsLoading(false);
     }
   };
+
+  const [diagnostics, setDiagnostics] = useState<any[] | null>(null);
 
   return (
     <>
@@ -120,6 +130,8 @@ export function Sprungles() {
             )}
             <div ref={messagesEndRef} />
           </div>
+
+          {diagnostics && <SprunglesDiagnostics attempts={diagnostics} />}
 
           <div className="p-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800">
             <form className="flex items-center gap-2" onSubmit={handleSubmit}>

@@ -4,6 +4,13 @@ import { NextResponse } from 'next/server';
 const OPENROUTER_BASE = 'https://openrouter.ai/api/v1';
 const API_KEY = process.env.OPENROUTER_API_KEY;
 
+// In-memory caches to bias selection and avoid repeatedly trying recently-failed models.
+// This is a simple server-local Map used as a cooldown mechanism. If you deploy multiple
+// instances (horizontal scaling), consider using a shared store (Redis) instead.
+const failedModels = new Map(); // modelId -> lastFailedTimestamp (ms)
+const successModels = new Map(); // modelId -> lastSuccessTimestamp (ms)
+const COOLDOWN_MS = 60 * 1000; // 60 seconds cooldown for failed models
+
 async function fetchModelsList() {
   try {
     const resp = await fetch(`${OPENROUTER_BASE}/models`, {
@@ -77,7 +84,14 @@ export async function POST(req: Request) {
     const systemPrompt = `You are Sprungles, a helpful and friendly bot for Trans Tracker 101. Your job is to help users understand complex anti-trans or pro-trans legislation, state bills, and legal jargon by translating it into plain, easy-to-understand English. Be concise, supportive, and informative.`;
 
     const models = await fetchModelsList();
-    const candidates = pickCandidates(models);
+    let candidates = pickCandidates(models);
+
+    // Filter out models that failed recently (cooldown)
+    const now = Date.now();
+    candidates = candidates.filter((id) => {
+      const lastFailed = failedModels.get(id) || 0;
+      return now - lastFailed > COOLDOWN_MS;
+    });
 
     if (candidates.length === 0) candidates.push('openrouter/free');
 
@@ -94,11 +108,19 @@ export async function POST(req: Request) {
       const start = Date.now();
       const result = await tryModel(modelId, messages);
       const duration = Date.now() - start;
-      attempts.push({ model: modelId, duration, result: result.ok ? 'ok' : 'fail', status: result.status, error: result.error || (result.json && result.json.error) || null });
+      const attemptMeta = { model: modelId, duration, ok: result.ok, status: result.status, error: result.error || (result.json && result.json.error) || null };
+      attempts.push(attemptMeta);
 
       if (result.ok && result.json) {
+        // record success
+        successModels.set(modelId, Date.now());
+        // remove any failed mark
+        failedModels.delete(modelId);
         const reply = result.json?.choices?.[0]?.message?.content || result.json?.choices?.[0]?.text || null;
         return NextResponse.json({ reply, model: modelId, attempts });
+      } else {
+        // record failure timestamp to cooldown
+        failedModels.set(modelId, Date.now());
       }
     }
 
