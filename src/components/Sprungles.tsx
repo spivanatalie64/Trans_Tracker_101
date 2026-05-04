@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Bot, X, Sparkles, Loader2 } from 'lucide-react';
 import dynamic from 'next/dynamic';
 const SprunglesDiagnostics = dynamic(() => import('./SprunglesDiagnostics').then(m => m.SprunglesDiagnostics), { ssr: false });
+import Link from 'next/link';
 
 interface Message {
   role: 'bot' | 'user';
@@ -93,12 +94,15 @@ export function Sprungles() {
                 <p className="text-[10px] text-indigo-200">Common Language Translator</p>
               </div>
             </div>
-            <button 
+            <div className="flex items-center gap-2">
+              <Link href="/api/admin" target="_blank" className="text-indigo-200 text-xs opacity-90 hover:opacity-100 mr-2">Admin</Link>
+              <button 
               onClick={() => setIsOpen(false)}
               className="text-indigo-200 hover:text-white transition-colors p-1 rounded-full hover:bg-indigo-700"
             >
               <X className="w-5 h-5" />
             </button>
+            </div>
           </div>
 
           <div className="h-80 p-4 overflow-y-auto bg-slate-50 dark:bg-slate-950/50 flex flex-col gap-3">
