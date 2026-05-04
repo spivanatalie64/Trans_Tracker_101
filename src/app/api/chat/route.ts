@@ -18,7 +18,35 @@ import path from 'path';
 const STATS_PATH = path.resolve('.cache', 'model_stats.json');
 try { fs.mkdirSync(path.dirname(STATS_PATH), { recursive: true }); } catch (e) {}
 
-function loadStats() {
+// Prefer Redis when configured for shared persistence
+let redisClient: any = null;
+const REDIS_URL = process.env.REDIS_URL || null;
+if (REDIS_URL) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Redis = require('ioredis');
+    redisClient = new Redis(REDIS_URL);
+  } catch (e) {
+    console.error('Failed to initialize Redis client', e);
+    redisClient = null;
+  }
+}
+
+async function loadStats() {
+  if (redisClient) {
+    try {
+      const raw = await redisClient.get('trans_tracker_model_stats');
+      if (raw) {
+        const json = JSON.parse(raw);
+        if (json?.usageCounts) Object.entries(json.usageCounts).forEach(([k, v]) => usageCounts.set(k, v as number));
+        if (json?.successModels) Object.entries(json.successModels).forEach(([k, v]) => successModels.set(k, v as number));
+      }
+      return;
+    } catch (e) {
+      console.error('Failed to load stats from Redis', e);
+    }
+  }
+
   try {
     if (fs.existsSync(STATS_PATH)) {
       const raw = fs.readFileSync(STATS_PATH, 'utf8');
@@ -31,11 +59,21 @@ function loadStats() {
   }
 }
 
-function saveStats() {
+async function saveStats() {
+  const obj: any = { usageCounts: {}, successModels: {} };
+  usageCounts.forEach((v, k) => obj.usageCounts[k] = v);
+  successModels.forEach((v, k) => obj.successModels[k] = v);
+
+  if (redisClient) {
+    try {
+      await redisClient.set('trans_tracker_model_stats', JSON.stringify(obj), 'EX', 60 * 60);
+      return;
+    } catch (e) {
+      console.error('Failed to save stats to Redis', e);
+    }
+  }
+
   try {
-    const obj: any = { usageCounts: {}, successModels: {} };
-    usageCounts.forEach((v, k) => obj.usageCounts[k] = v);
-    successModels.forEach((v, k) => obj.successModels[k] = v);
     fs.writeFileSync(STATS_PATH, JSON.stringify(obj), 'utf8');
   } catch (e) {
     console.error('Failed to save stats', e);
@@ -79,6 +117,12 @@ async function processQueue() {
 setInterval(() => {
   if (retryQueue.length > 0) processQueue();
 }, 10_000);
+
+// Helper to enqueue a background warm-up job. Will automatically drop if queue is full.
+function enqueueWarmup(messages: any[], attemptsWanted = 6) {
+  if (retryQueue.length > MAX_QUEUE) return;
+  retryQueue.push({ messages, attemptsWanted });
+}
 
 async function fetchModelsList() {
   try {
@@ -186,12 +230,21 @@ export async function POST(req: Request) {
         // remove any failed mark
         failedModels.delete(modelId);
         const reply = result.json?.choices?.[0]?.message?.content || result.json?.choices?.[0]?.text || null;
+        // increment usage count
+        usageCounts.set(modelId, (usageCounts.get(modelId) || 0) + 1);
+        // persist stats later
+        saveStats();
         return NextResponse.json({ reply, model: modelId, attempts });
       } else {
         // record failure timestamp to cooldown
         failedModels.set(modelId, Date.now());
       }
     }
+
+    // Enqueue a background warm-up to probe healthy models for next time
+    try {
+      enqueueWarmup(messages, 6);
+    } catch (e) { /* noop */ }
 
     return NextResponse.json({ error: 'All model attempts failed', attempts }, { status: 502 });
   } catch (error) {
