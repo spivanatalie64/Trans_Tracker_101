@@ -47,26 +47,39 @@ export async function fetchAllFeeds(): Promise<FeedItem[]> {
       const xmlData = await response.text();
       const feed = await parser.parseString(xmlData);
       
-      // 4. Extract only the 5 newest items per feed to save memory
-      const items = feed.items.slice(0, 5).map((item) => {
-        let rawSnippet = item.summary || item.description || item['content:encoded'] || item.content || '';
-        let cleanSnippet = rawSnippet.replace(/<\/?[^>]+(>|$)/g, '').trim();
-        cleanSnippet = cleanSnippet.replace(/&nbsp;/g, ' ').replace(/&#8217;/g, "'").replace(/&#8220;/g, '"').replace(/&#8221;/g, '"');
-        
-        if (cleanSnippet.length > 200) {
-          cleanSnippet = cleanSnippet.substring(0, 200) + '...';
-        }
+      // Keywords to strictly filter for Transgender / LGBTQ+ legislation and news
+      const transKeywords = /\b(trans|transgender|transsexual|transphobi[ca]|gender|gender-affirming|gender-fluid|non-binary|nonbinary|enby|pronouns|drag ban|drag queen|drag performers|lgbt|lgbtq|lgbtqia|queer|sex characteristics)\b/i;
 
-        return {
-          id: `${source.id}-${item.guid || item.link || Math.random().toString()}`,
-          title: item.title || 'Untitled',
-          link: item.link || source.website,
-          pubDate: item.pubDate || new Date().toISOString(),
-          isoDate: item.isoDate || new Date(item.pubDate || Date.now()).toISOString(),
-          source: source,
-          snippet: cleanSnippet,
-        };
-      });
+      // 4. Extract, normalize, and STRICTLY FILTER items
+      const items = feed.items
+        .map((item) => {
+          let rawSnippet = item.summary || item.description || item['content:encoded'] || item.content || '';
+          let cleanSnippet = rawSnippet.replace(/<\/?[^>]+(>|$)/g, '').trim();
+          cleanSnippet = cleanSnippet.replace(/&nbsp;/g, ' ').replace(/&#8217;/g, "'").replace(/&#8220;/g, '"').replace(/&#8221;/g, '"');
+          
+          if (cleanSnippet.length > 200) {
+            cleanSnippet = cleanSnippet.substring(0, 200) + '...';
+          }
+
+          return {
+            id: `${source.id}-${item.guid || item.link || Math.random().toString()}`,
+            title: item.title || 'Untitled',
+            link: item.link || source.website,
+            pubDate: item.pubDate || new Date().toISOString(),
+            isoDate: item.isoDate || new Date(item.pubDate || Date.now()).toISOString(),
+            source: source,
+            snippet: cleanSnippet,
+          };
+        })
+        .filter((item) => {
+          // If the source is exclusively a trans-focused source (like Erin In The Morning), keep everything.
+          // Otherwise, strictly check the title and snippet against our regex.
+          if (source.id === 'erininthemorn' || source.id === 'assignedmedia' || source.id === 'tlc' || source.id === 'a4te') {
+            return true;
+          }
+          return transKeywords.test(item.title) || transKeywords.test(item.snippet || '');
+        })
+        .slice(0, 10); // Take top 10 relevant hits per feed after filtering
 
       return items;
     } catch (error) {
