@@ -84,7 +84,11 @@ export default async function Home() {
                 </div>
                 
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2 leading-tight">
-                  <Link href={`/read?url=${encodeURIComponent(item.link)}`} prefetch={false} className="hover:text-indigo-600 dark:hover:text-indigo-400">
+                  <Link
+                    href={{ pathname: '/read', query: { url: item.link } }}
+                    prefetch={false}
+                    className="hover:text-indigo-600 dark:hover:text-indigo-400"
+                  >
                     {item.title}
                   </Link>
                 </h3>
@@ -104,8 +108,8 @@ export default async function Home() {
                   >
                     {item.source.name}
                   </a>
-                  <Link 
-                    href={`/read?url=${encodeURIComponent(item.link)}`}
+                  <Link
+                    href={{ pathname: '/read', query: { url: item.link } }}
                     prefetch={false}
                     className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-full"
                   >
