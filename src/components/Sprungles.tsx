@@ -43,12 +43,16 @@ export function Sprungles() {
         body: JSON.stringify({ message: userMessage })
       });
 
-      if (!response.ok) throw new Error('Failed to fetch');
       const data = await response.json();
+      
+      if (!response.ok || data.error) {
+        throw new Error(data.error || 'Failed to fetch');
+      }
 
       setMessages(prev => [...prev, { role: 'bot', content: data.reply }]);
     } catch (error) {
-      setMessages(prev => [...prev, { role: 'bot', content: "Oops! I'm having trouble connecting right now. Please try again later." }]);
+      console.error(error);
+      setMessages(prev => [...prev, { role: 'bot', content: "I'm sorry, my servers are receiving too many requests right now! Please wait a minute and try asking me again. 💙" }]);
     } finally {
       setIsLoading(false);
     }

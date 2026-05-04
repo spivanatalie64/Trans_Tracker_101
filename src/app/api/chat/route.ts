@@ -17,6 +17,8 @@ export async function POST(req: Request) {
         'X-Title': 'Trans Tracker 101',
       },
       body: JSON.stringify({
+        // Since OpenRouter's free models are severely rate limited right now,
+        // we use their default free routing, but add a fallback mechanism in the frontend
         model: 'openrouter/free',
         messages: [
           {
