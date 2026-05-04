@@ -9,7 +9,76 @@ const API_KEY = process.env.OPENROUTER_API_KEY;
 // instances (horizontal scaling), consider using a shared store (Redis) instead.
 const failedModels = new Map(); // modelId -> lastFailedTimestamp (ms)
 const successModels = new Map(); // modelId -> lastSuccessTimestamp (ms)
+const usageCounts = new Map(); // modelId -> number of times used (lower is preferred)
 const COOLDOWN_MS = 60 * 1000; // 60 seconds cooldown for failed models
+
+// Simple persistent cache on disk to survive short restarts. This writes periodically.
+import fs from 'fs';
+import path from 'path';
+const STATS_PATH = path.resolve('.cache', 'model_stats.json');
+try { fs.mkdirSync(path.dirname(STATS_PATH), { recursive: true }); } catch (e) {}
+
+function loadStats() {
+  try {
+    if (fs.existsSync(STATS_PATH)) {
+      const raw = fs.readFileSync(STATS_PATH, 'utf8');
+      const json = JSON.parse(raw);
+      if (json?.usageCounts) Object.entries(json.usageCounts).forEach(([k, v]) => usageCounts.set(k, v as number));
+      if (json?.successModels) Object.entries(json.successModels).forEach(([k, v]) => successModels.set(k, v as number));
+    }
+  } catch (e) {
+    console.error('Failed to load stats', e);
+  }
+}
+
+function saveStats() {
+  try {
+    const obj: any = { usageCounts: {}, successModels: {} };
+    usageCounts.forEach((v, k) => obj.usageCounts[k] = v);
+    successModels.forEach((v, k) => obj.successModels[k] = v);
+    fs.writeFileSync(STATS_PATH, JSON.stringify(obj), 'utf8');
+  } catch (e) {
+    console.error('Failed to save stats', e);
+  }
+}
+
+loadStats();
+setInterval(saveStats, 30_000);
+
+// A small in-memory retry queue for background warm-up retries when initial attempts fail.
+const retryQueue: any[] = [];
+const MAX_QUEUE = 1000;
+
+async function processQueue() {
+  while (retryQueue.length > 0) {
+    const job = retryQueue.shift();
+    if (!job) break;
+    const { messages, attemptsWanted = 6 } = job;
+    const models = await fetchModelsList();
+    const candidates = pickCandidates(models).slice(0, attemptsWanted);
+    for (const m of candidates) {
+      try {
+        const res = await tryModel(m, messages);
+        usageCounts.set(m, (usageCounts.get(m) || 0) + 1);
+        if (res.ok) {
+          successModels.set(m, Date.now());
+          break; // warmed one successfully
+        } else {
+          failedModels.set(m, Date.now());
+        }
+      } catch (e) {
+        failedModels.set(m, Date.now());
+      }
+      // small sleep to avoid hammering
+      await new Promise(r => setTimeout(r, 150 + Math.floor(Math.random()*200)));
+    }
+  }
+}
+
+// Background worker to process the retryQueue periodically
+setInterval(() => {
+  if (retryQueue.length > 0) processQueue();
+}, 10_000);
 
 async function fetchModelsList() {
   try {
