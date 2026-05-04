@@ -65,8 +65,9 @@ export default async function ReadPage({
     notFound();
   }
 
-  const decodedUrl = decodeURIComponent(url);
-  const article = await fetchAndParseArticle(decodedUrl);
+  // Next.js automatically decodes searchParams, but we'll ensure it's a string
+  const targetUrl = typeof url === 'string' ? url : Array.isArray(url) ? url[0] : '';
+  const article = await fetchAndParseArticle(targetUrl);
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pb-20">
@@ -81,7 +82,7 @@ export default async function ReadPage({
             Back to Feed
           </Link>
           <a 
-            href={decodedUrl}
+            href={targetUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
@@ -102,7 +103,7 @@ export default async function ReadPage({
               Some websites heavily restrict automated fetching to enforce paywalls or prevent ad-blockers. 
             </p>
             <a 
-              href={decodedUrl}
+              href={targetUrl}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-medium rounded-full shadow-sm transition-colors"
