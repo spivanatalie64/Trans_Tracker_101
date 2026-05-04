@@ -1,65 +1,131 @@
-import Image from "next/image";
+import { fetchAllFeeds } from '@/lib/fetchFeeds';
+import Link from 'next/link';
+import { formatDistanceToNow } from 'date-fns';
+import { ExternalLink, ShieldAlert, Newspaper, Scale, Landmark } from 'lucide-react';
+import { SourceCategory } from '@/config/sources';
+import { Sprungles } from '@/components/Sprungles';
 
-export default function Home() {
+// Define how often this page should re-fetch RSS feeds in the background (in seconds)
+export const revalidate = 3600; // Every 1 hour
+
+function getCategoryIcon(category: SourceCategory) {
+  switch (category) {
+    case 'LGBTQ+ News':
+      return <Newspaper className="w-4 h-4" />;
+    case 'Legal & Advocacy':
+      return <Scale className="w-4 h-4" />;
+    case 'State Independent News':
+      return <Landmark className="w-4 h-4" />;
+    case 'General Politics':
+      return <ShieldAlert className="w-4 h-4" />;
+  }
+}
+
+function getCategoryColor(category: SourceCategory) {
+  switch (category) {
+    case 'LGBTQ+ News':
+      return 'bg-pink-100 text-pink-800 dark:bg-pink-900/30 dark:text-pink-300 border-pink-200 dark:border-pink-800';
+    case 'Legal & Advocacy':
+      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 border-blue-200 dark:border-blue-800';
+    case 'State Independent News':
+      return 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border-amber-200 dark:border-amber-800';
+    case 'General Politics':
+      return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700';
+  }
+}
+
+export default async function Home() {
+  const allNews = await fetchAllFeeds();
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      {/* Header */}
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShieldAlert className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Trans_Tracker_101</h1>
+          </div>
+          <nav>
+            <Link href="/sources" className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors">
+              View Sources
+            </Link>
+          </nav>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+      </header>
+
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <div className="mb-8">
+          <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">Latest Updates</h2>
+          <p className="mt-2 text-lg text-slate-600 dark:text-slate-400">Tracking legislation, civil rights battles, and news across {allNews.length} recent articles.</p>
         </div>
-      </main>
-    </div>
+
+        {/* Masonry-style Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {allNews.map((item) => (
+            <article 
+              key={item.id} 
+              className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden hover:shadow-md transition-shadow flex flex-col"
+            >
+              <div className="p-5 flex-1 flex flex-col">
+                <div className="flex items-center justify-between mb-3">
+                  <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCategoryColor(item.source.category)}`}>
+                    {getCategoryIcon(item.source.category)}
+                    {item.source.category}
+                  </span>
+                  <time className="text-xs text-slate-500 dark:text-slate-400">
+                    {formatDistanceToNow(new Date(item.isoDate || item.pubDate), { addSuffix: true })}
+                  </time>
+                </div>
+                
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2 leading-tight">
+                  <a href={item.link} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-600 dark:hover:text-indigo-400">
+                    {item.title}
+                  </a>
+                </h3>
+                
+                {item.snippet && (
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 line-clamp-3 flex-1">
+                    {item.snippet}
+                  </p>
+                )}
+                
+                <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <a 
+                    href={item.source.website}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-medium text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white"
+                  >
+                    {item.source.name}
+                  </a>
+                  <a 
+                    href={item.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+                  >
+                    Read <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+              </div>
+            </article>
+          ))}
+        </div>
+        
+        {allNews.length === 0 && (
+          <div className="text-center py-20 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800">
+            <Newspaper className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-slate-900 dark:text-white">No updates found</h3>
+            <p className="text-slate-500">We couldn't fetch the latest news feeds right now.</p>
+          </div>
+        )}
+
+      </div>
+
+      <Sprungles />
+    </main>
   );
 }
