@@ -79,7 +79,7 @@ export async function fetchAllFeeds(): Promise<FeedItem[]> {
           }
           return transKeywords.test(item.title) || transKeywords.test(item.snippet || '');
         })
-        .slice(0, 10); // Take top 10 relevant hits per feed after filtering
+        // No limit per feed — return all filtered matches
 
       return items;
     } catch (error) {
@@ -101,7 +101,5 @@ export async function fetchAllFeeds(): Promise<FeedItem[]> {
     return dateB - dateA;
   });
 
-  // 5. MAXIMUM PERFORMANCE: Only return the absolute top 60 newest articles to the browser.
-  // Sending 700+ articles to the DOM would freeze the browser. 60 guarantees instant Time-To-Interactive.
-  return sortedItems.slice(0, 60);
+  return sortedItems;
 }
