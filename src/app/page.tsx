@@ -84,13 +84,14 @@ export default async function Home() {
                 </div>
                 
                 <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-2 leading-tight">
-                  <Link
-                    href={{ pathname: '/read', query: { url: item.link } }}
-                    prefetch={false}
+                  <a
+                    href={item.link}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="hover:text-indigo-600 dark:hover:text-indigo-400"
                   >
                     {item.title}
-                  </Link>
+                  </a>
                 </h3>
                 
                 {item.snippet && (
@@ -109,8 +110,7 @@ export default async function Home() {
                     {item.source.name}
                   </a>
                   <Link
-                    href={{ pathname: '/read', query: { url: item.link } }}
-                    prefetch={false}
+                    href={`/read?url=${encodeURIComponent(item.link)}`}
                     className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1.5 rounded-full"
                   >
                     Read Clean <ExternalLink className="w-3 h-3" />
